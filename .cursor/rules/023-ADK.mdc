@@ -1,8 +1,3 @@
----
-description: ADK: Guide for implementing the Agent Development Kit (ADK) with Python, covering core components, agent design patterns, safety, evaluation, and deployment.
-globs: 
-alwaysApply: false
----
 # ADK: Python Implementation and Agent Design Guide
 
 This document provides guidelines and best practices for building applications using the Agent Development Kit (ADK) with Python. It covers core ADK components, agent design patterns, safety, evaluation, and deployment strategies. Always refer to the official ADK documentation for the most up-to-date and detailed information.
@@ -16,7 +11,7 @@ Agents are the fundamental execution units in ADK.
 1.  **`LlmAgent` (or `Agent`)**: For agents driven by Large Language Models (LLMs).
     *   **Key Parameters**:
         *   `name` (str): Unique identifier for the agent.
-        *   `model` (str or `LiteLlm` object): Specifies the LLM (e.g., `"gemini-2.0-flash"`, `LiteLlm(model="openai/gpt-4o")`).
+        *   `model` (str or `LiteLlm` object): Specifies the LLM. Use a string for Google models (e.g., `"gemini-2.0-flash"`). For other providers like OpenAI or Anthropic, use the `LiteLlm` wrapper: `from google.adk.models.lite_llm import LiteLlm` and pass `LiteLlm(model="openai/gpt-4o")`. Ensure corresponding API keys (e.g., `OPENAI_API_KEY`) are set as environment variables.
         *   `description` (str): AI-friendly summary of capabilities, used for delegation.
         *   `instruction` (str): Detailed guidance for the LLM's behavior, persona, and tool usage. Supports `{state_variable}` and `{artifact.artifact_name}` templating.
         *   `tools` (list): List of tool functions or `BaseTool` instances.
@@ -38,11 +33,20 @@ Agents are the fundamental execution units in ADK.
 
         capital_agent = Agent(
             name="CapitalFinderAgent",
-            model="gemini-2.0-flash", # or LiteLlm(model="openai/gpt-4o")
+            model="gemini-2.0-flash", # For Google Models
             description="Provides the capital city of a given country.",
             instruction="You are an expert geographer. Use the 'get_capital' tool to find capitals.",
             tools=[get_capital],
             output_key="found_capital"
+        )
+
+        # Example with a non-Google model via LiteLLM
+        capital_agent_openai = Agent(
+            name="CapitalFinderAgentOpenAI",
+            model=LiteLlm(model="openai/gpt-4o"), # Use OpenAI via LiteLlm wrapper
+            description="Provides the capital city of a given country using OpenAI.",
+            instruction="You are an expert geographer. Use the 'get_capital' tool to find capitals.",
+            tools=[get_capital],
         )
         ```
     *   Reference: `docs/agents/llm-agents.md`
@@ -533,6 +537,10 @@ ADK agents can be deployed to various environments.
     *   Configure Kubernetes service accounts for Workload Identity if accessing GCP services.
     *   Reference: `docs/deploy/gke.md`
 
+**General Python Deployment Considerations**:
+*   Ensure all dependencies are in `requirements.txt`.
+*   Manage API keys and sensitive configurations securely (e.g., environment variables, secret managers).
+*   Use persistent `SessionService` (e.g., `DatabaseSessionService` or `VertexAiSessionService` if using Agent Engine) for production.
 **General Python Deployment Considerations**:
 *   Ensure all dependencies are in `requirements.txt`.
 *   Manage API keys and sensitive configurations securely (e.g., environment variables, secret managers).

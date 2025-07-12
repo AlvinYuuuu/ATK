@@ -33,9 +33,8 @@ We will build the system sprint by sprint, focusing on one major capability at a
         *   **Affected Components**: `requirements.txt`, `.env.example`, `src/core/config.py`, `src/main.py`.
         *   **Key Implementation Steps**:
             *   Define and confirm all necessary packages in `requirements.txt`, including `google-generativeai-adk`, `mem0ai`, `litellm`, and `langfuse`.
-            *   Create a `.env.example` file to manage all required API keys and configuration settings (e.g., for LLM providers, LangFuse, etc.).
-            *   Implement LiteLLM configuration in `src/core/config.py` to create a model-routing instance, allowing for flexible switching between different LLMs.
-            *   Implement Mem0 client initialization in `src/core/shared_memory.py`, ensuring a single, reusable client instance is available across the application.
+            *   Create a `.env.example` file to manage all required API keys and configuration settings (e.g., for `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `MEM0_API_KEY`, LangFuse, etc.).
+            *   Leverage the ADK's `LiteLlm` model wrapper (`from google.adk.models.lite_llm import LiteLlm`) when defining agents to enable multi-provider LLM support. This avoids global configuration and allows model selection on a per-agent basis (e.g., `model=LiteLlm(model="openai/gpt-4o")`).
             *   Write a basic "hello world" agent in `src/main.py` that utilizes the ADK runner to confirm the core environment is functional.
     *   **Feature: Basic Orchestrator & Observability**
         *   **Description**: Create a minimal `OrchestratorAgent` and confirm that its execution is correctly instrumented and traced in LangFuse, providing essential observability.
@@ -85,12 +84,12 @@ We will build the system sprint by sprint, focusing on one major capability at a
         *   **Description**: Develop the `SolutionStrategyAgent` to use the knowledge base and the tender analysis to formulate a high-level technical solution.
         *   **Affected Components**: `src/agents/solution_strategy_agent.py`, `src/tools/memory_tools.py`.
         *   **Key Implementation Steps**:
-            *   Implement a `search_kb` tool that provides a structured interface to search Mem0, allowing for queries and filters.
+            *   In `src/tools/memory_tools.py`, implement `search_memory` and `save_memory` tools based on the official Mem0-ADK integration pattern. These tools will instantiate the `MemoryClient` and provide a clean interface for agents to interact with long-term memory.
             *   Define the agent with a multi-step prompt that instructs it to:
                 1.  Read the tender analysis from shared memory.
-                2.  Search the knowledge base for relevant case studies and technologies.
+                2.  Use the `search_memory` tool to query the knowledge base for relevant case studies and technologies.
                 3.  Formulate a technical solution, including a recommended tech stack and high-level architecture. Justify choices by referencing the KB.
-                4.  Save the structured solution (e.g., `{ "tech_stack": [...], "architecture_overview": "...", "justification": "..." }`) to shared memory.
+                4.  Use the `save_memory` tool to save the structured solution (e.g., `{ "tech_stack": [...], "architecture_overview": "...", "justification": "..." }`) to shared memory.
     *   **Deliverables**: The `SolutionStrategyAgent` can successfully generate and justify a relevant technical solution based on a tender analysis and the populated knowledge base.
 
 ### Sprint 4: Planning & Visualization

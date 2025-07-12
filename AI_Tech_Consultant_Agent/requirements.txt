@@ -3,6 +3,20 @@ google-adk
 mem0ai
 litellm
 langfuse
+
+# Document Parsing
+PyMuPDF
+python-docx
+
+# Utilities & Environment
 python-dotenv
-opentelemetry-sdk
-opentelemetry-exporter-otlp
+gradio
+pydantic-settings
+sqlalchemy
+# PostgreSQL driver
+psycopg2-binary
+
+# Observability (LangFuse dependencies)
+opentelemetry-api<1.34.0
+opentelemetry-sdk<1.34.0
+opentelemetry-exporter-otlp<1.34.0
