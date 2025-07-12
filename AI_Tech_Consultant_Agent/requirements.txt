@@ -1,0 +1,8 @@
+google-generativeai
+google-adk
+mem0ai
+litellm
+langfuse
+python-dotenv
+opentelemetry-sdk
+opentelemetry-exporter-otlp
