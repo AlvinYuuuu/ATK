@@ -1,0 +1,7 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/AI_Tech_Consultant_Agent/.venv/bin/python",
+  "python.envFile": "${workspaceFolder}/AI_Tech_Consultant_Agent/.env",
+  "python.analysis.extraPaths": [
+    "AI_Tech_Consultant_Agent/src"
+  ]
+}

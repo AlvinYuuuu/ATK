@@ -126,7 +126,7 @@ The system does not use a traditional relational or NoSQL database for transacti
 There is no external-facing REST or GraphQL API. The "API" of this system is defined by the tools and state management that enable inter-agent communication.
 
 *   **Communication Style**: Asynchronous, state-driven communication. Agents operate independently and communicate by reading from and writing to the central `SharedMemory` (Mem0).
-*   **Tooling Layer (`src/tools/`)**: Tools are the primary mechanism for agents to interact with the outside world and each other's work. They are designed as simple, single-purpose functions decorated with ADK's `@function_tool`.
+*   **Tooling Layer (`src/tools/`)**: Tools are the primary mechanism for agents to interact with the outside world and each other's work. They are designed as simple, single-purpose functions decorated with ADK's ``.
     *   **`memory_tools.py`**: `save_memory`, `search_memories`. Used by all agents to interact with Mem0.
     *   **`document_parsing_tools.py`**: `parse_pdf`, `parse_docx`. Used by `TenderAnalysisAgent`.
     *   **`diagram_tools.py`**: `create_architecture_diagram`. Used by `VisualizationAgent`.

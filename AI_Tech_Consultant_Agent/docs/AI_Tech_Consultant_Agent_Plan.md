@@ -132,7 +132,7 @@ The system is composed of the following agents, managed by the Orchestrator:
 
 This project will be built on a modern, agent-focused technology stack as requested.
 
-*   **@Agent Development Kit (ADK)**: We will use ADK to define each agent and its associated tools, following the best practices outlined in `024-ADK-with-Mem0.mdc`. The `@function_tool` decorator will be used to create the specific capabilities for each agent.
+*   **@Agent Development Kit (ADK)**: We will use ADK to define each agent and its associated tools, following the best practices outlined in `024-ADK-with-Mem0.mdc`. The `` decorator will be used to create the specific capabilities for each agent.
 
 *   **@Mem0**: This is the cornerstone of our system's knowledge and intelligence. We will use Mem0 to create a persistent, searchable knowledge base. The specialized agents will rely on it to move beyond generic LLM knowledge and provide solutions grounded in Votee's unique strengths and partnerships.
 

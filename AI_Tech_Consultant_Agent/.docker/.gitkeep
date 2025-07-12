@@ -1,0 +1,3 @@
+# This file ensures the .docker directory is tracked by git
+# The actual data directories (mem0/, postgres/, redis/) are ignored
+# to prevent large data files from being committed to the repository 

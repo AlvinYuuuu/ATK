@@ -55,7 +55,7 @@ We will build the system sprint by sprint, focusing on one major capability at a
         *   **Affected Components**: `src/tools/document_parsing_tools.py`, `tests/tools/`.
         *   **Key Implementation Steps**:
             *   Choose and implement a robust Python library for PDF text extraction (e.g., `PyMuPDF`).
-            *   Create a `@function_tool` named `parse_pdf` that takes a file path and returns extracted text.
+            *   Create a `` named `parse_pdf` that takes a file path and returns extracted text.
             *   Write unit tests for the parsing tool with a sample PDF.
     *   **Feature: Tender Analysis Agent**
         *   **Description**: Develop the `TenderAnalysisAgent` to use the parsing tool and extract key requirements.

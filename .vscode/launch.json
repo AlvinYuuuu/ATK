@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "dev",
+      "type": "debugpy",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "python": "AI_Tech_Consultant_Agent/.venv/bin/python",
+      "program": "AI_Tech_Consultant_Agent/src/main.py",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    }
+  ]
+}
