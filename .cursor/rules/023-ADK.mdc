@@ -10,86 +10,96 @@ Agents are the fundamental execution units in ADK.
 
 1.  **`LlmAgent` (or `Agent`)**: For agents driven by Large Language Models (LLMs).
     *   **Key Parameters**:
-        *   `name` (str): Unique identifier for the agent.
-        *   `model` (str or `LiteLlm` object): Specifies the LLM. Use a string for Google models (e.g., `"gemini-2.0-flash"`). For other providers like OpenAI or Anthropic, use the `LiteLlm` wrapper: `from google.adk.models.lite_llm import LiteLlm` and pass `LiteLlm(model="openai/gpt-4o")`. Ensure corresponding API keys (e.g., `OPENAI_API_KEY`) are set as environment variables.
-        *   `description` (str): AI-friendly summary of capabilities, used for delegation.
-        *   `instruction` (str): Detailed guidance for the LLM's behavior, persona, and tool usage. Supports `{state_variable}` and `{artifact.artifact_name}` templating.
-        *   `tools` (list): List of tool functions or `BaseTool` instances.
+        *   `name` (str): Unique identifier for the agent. Essential for logging and distinguishing agents.
+        *   `model` (str or `LiteLlm` object): Specifies the LLM.
+            *   **Google Models**: Use a string (e.g., `"gemini-1.5-flash-001"`, `"gemini-2.0-pro-002"`).
+            *   **Other Providers**: Use the `LiteLlm` wrapper from `google.adk.models.lite_llm`. E.g., `LiteLlm(model="openai/gpt-4o")` or `LiteLlm(model="anthropic/claude-3-sonnet-20240229")`. Ensure corresponding API keys (e.g., `OPENAI_API_KEY`) are set as environment variables.
+        *   `description` (str): AI-friendly summary of the agent's capabilities. Crucial for multi-agent systems where one agent decides which sub-agent to delegate a task to.
+        *   `instruction` or `prompt` (str): Detailed guidance for the LLM's behavior, persona, and tool usage. They are aliases for the same parameter.
+            *   **Templating**: You can inject session state variables and artifact details into the instruction string.
+                *   `{state_variable}`: Inserts the value of `session.state['state_variable']`.
+                *   `{state_variable?}`: Marks the variable as optional. The segment of the instruction containing it will be included only if the variable exists in the state.
+                *   `{artifact.artifact_name}`: Inserts the content of the specified artifact.
+        *   `tools` (list): List of tool functions or `BaseTool` instances available to the agent.
         *   `output_key` (str, optional): If set, the agent's final response text is saved to `session.state[output_key]`.
-        *   `generate_content_config` (types.GenerateContentConfig, optional): Controls LLM generation parameters (temperature, max_output_tokens).
-        *   `input_schema`/`output_schema` (Pydantic BaseModel, optional): Define structured input/output. Using `output_schema` disables tool use and agent transfer.
-        *   `include_contents` (str, default: `'default'`): `'none'` to exclude conversation history.
-        *   `planner` / `code_executor` (optional): For advanced planning or code execution.
+        *   `generate_content_config` (types.GenerateContentConfig, optional): Controls LLM generation parameters like `temperature`, `max_output_tokens`, `top_p`, and `top_k`.
+        *   `input_schema`/`output_schema` (Pydantic BaseModel, optional): Define structured input/output. Using `output_schema` disables tool use and agent transfer, as the agent is expected to only produce the structured output.
+        *   `include_contents` (str, default: `'default'`): Controls how much conversation history is sent to the LLM. `'none'` excludes all history.
+        *   `planner` / `code_executor` (optional): For advanced planning or code execution capabilities.
     *   **Python Example**:
         ```python
-        from google.adk.agents import Agent # LlmAgent is often aliased as Agent
-        from google.adk.models.lite_llm import LiteLlm # For non-Google models
+        from google.adk.agents import Agent
+        from google.adk.models.lite_llm import LiteLlm
 
-        def get_capital(country: str) -> str:
-            """Returns the capital of a country."""
-            # Mock implementation
-            capitals = {"France": "Paris", "Japan": "Tokyo"}
-            return capitals.get(country, "Unknown")
+        # Instruction with optional templating
+        instruction_template = "You are a greeter. Your name is {agent_name}. Greet the user. If you know the user's name, {user_name?}, address them by it."
 
-        capital_agent = Agent(
-            name="CapitalFinderAgent",
-            model="gemini-2.0-flash", # For Google Models
-            description="Provides the capital city of a given country.",
-            instruction="You are an expert geographer. Use the 'get_capital' tool to find capitals.",
-            tools=[get_capital],
-            output_key="found_capital"
-        )
-
-        # Example with a non-Google model via LiteLLM
-        capital_agent_openai = Agent(
-            name="CapitalFinderAgentOpenAI",
-            model=LiteLlm(model="openai/gpt-4o"), # Use OpenAI via LiteLlm wrapper
-            description="Provides the capital city of a given country using OpenAI.",
-            instruction="You are an expert geographer. Use the 'get_capital' tool to find capitals.",
-            tools=[get_capital],
+        greeter_agent = Agent(
+            name="Greeter",
+            model="gemini-1.5-flash-001",
+            description="A friendly agent that greets users.",
+            instruction=instruction_template,
+            output_key="greeting_message"
         )
         ```
-    *   Reference: `docs/agents/llm-agents.md`
+    *   Reference: `docs/agents/llm-agents.md`, `docs/agents/models.md`
 
-2.  **Workflow Agents**: For orchestrating sub-agents without LLM-based flow control.
-    *   **`SequentialAgent`**: Executes sub-agents in the specified order. Output from one can be state input for the next.
+2.  **Workflow Agents**: For orchestrating sub-agents with deterministic, rule-based logic instead of LLM-based flow control.
+    *   **`SequentialAgent`**: Executes a list of sub-agents in the specified order. It's the simplest way to create a multi-step workflow. State from one agent is available to subsequent agents.
         ```python
         from google.adk.agents import SequentialAgent, Agent
 
-        step1 = Agent(name="Step1", model="gemini-2.0-flash", instruction="Generate a topic.", output_key="topic")
-        step2 = Agent(name="Step2", model="gemini-2.0-flash", instruction="Write a sentence about the topic: {topic}.")
-        pipeline = SequentialAgent(name="MyPipeline", sub_agents=[step1, step2])
+        # Agent 1: Generates a topic and saves it to the state.
+        step1 = Agent(name="TopicGenerator", model="gemini-1.5-flash-001", instruction="Generate a random topic.", output_key="topic")
+        # Agent 2: Uses the topic from the state to write a sentence.
+        step2 = Agent(name="SentenceWriter", model="gemini-1.5-flash-001", instruction="Write a one-sentence summary about the topic: {topic}.")
+
+        pipeline = SequentialAgent(name="WritingPipeline", sub_agents=[step1, step2])
         ```
-    *   **`ParallelAgent`**: Executes sub-agents concurrently. Results can be collected from state (use distinct `output_key`s).
+        *   Reference: `docs/agents/workflow-agents/sequential-agents.md`
+    *   **`ParallelAgent`**: Executes a list of sub-agents concurrently. This is useful for tasks that can be performed independently, reducing overall execution time.
         ```python
         from google.adk.agents import ParallelAgent, Agent
 
-        task_a = Agent(name="TaskA", model="gemini-2.0-flash", instruction="Research A.", output_key="result_a")
-        task_b = Agent(name="TaskB", model="gemini-2.0-flash", instruction="Research B.", output_key="result_b")
-        parallel_research = ParallelAgent(name="ResearchGroup", sub_agents=[task_a, task_b])
+        # Task A and Task B can run at the same time.
+        task_a = Agent(name="WeatherSearch", model="gemini-1.5-flash-001", instruction="Find the weather in Paris.", output_key="weather_result")
+        task_b = Agent(name="FlightSearch", model="gemini-1.5-flash-001", instruction="Find flights to Paris.", output_key="flight_result")
+
+        parallel_research = ParallelAgent(name="TripPlanner", sub_agents=[task_a, task_b])
         ```
-    *   **`LoopAgent`**: Executes sub-agents iteratively until `max_iterations` or an `Event.actions.escalate=True` signal.
+        *   Reference: `docs/agents/workflow-agents/parallel-agents.md`
+    *   **`LoopAgent`**: Executes a list of sub-agents iteratively until a termination condition is met.
+        *   **Termination Conditions**: The loop stops when `max_iterations` is reached or a sub-agent yields an event with `actions=EventActions(escalate=True)`.
         ```python
         from google.adk.agents import LoopAgent, Agent, BaseAgent
         from google.adk.events import Event, EventActions
         from google.adk.agents.invocation_context import InvocationContext
         from typing import AsyncGenerator
 
-        class CheckDone(BaseAgent):
+        # This agent checks a condition in the state and escalates to stop the loop.
+        class CheckConditionAgent(BaseAgent):
             async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
-                if ctx.session.state.get("iterations", 0) >= 2:
-                    yield Event(author=self.name, actions=EventActions(escalate=True))
+                # In a real scenario, this condition would be more meaningful.
+                if ctx.session.state.get("iteration_count", 0) >= 3:
+                    yield Event(author=self.name, content="Condition met, stopping loop.", actions=EventActions(escalate=True))
                 else:
-                    ctx.session.state["iterations"] = ctx.session.state.get("iterations", 0) + 1
                     yield Event(author=self.name, content="Continuing loop.")
 
-        iteration_task = Agent(name="IterationTask", model="gemini-2.0-flash", instruction="Perform one iteration.")
-        loop = LoopAgent(name="MyLoop", sub_agents=[iteration_task, CheckDone(name="DoneChecker")], max_iterations=3)
-        ```
-    *   Reference: `docs/agents/workflow-agents/`
+        # This agent performs the work in each iteration.
+        iteration_task = Agent(
+            name="IterationTask",
+            model="gemini-1.5-flash-001",
+            instruction="This is iteration number {iteration_count}. Refine the plan.",
+            # This action updates the iteration_count in the state.
+            actions=EventActions(state_delta={"iteration_count": ("{{session.state.iteration_count | default(0) + 1}}")})
+        )
 
-3.  **Custom Agents**: For arbitrary orchestration logic by subclassing `BaseAgent` and implementing `_run_async_impl`.
-    *   The `_run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]` method defines the agent's behavior, allowing calls to sub-agents (`self.sub_agent.run_async(ctx)`) and yielding events.
+        loop = LoopAgent(name="RefinementLoop", sub_agents=[iteration_task, CheckConditionAgent(name="ConditionChecker")], max_iterations=5)
+        ```
+        *   Reference: `docs/agents/workflow-agents/loop-agents.md`
+
+3.  **Custom Agents**: For ultimate control over orchestration logic, create a custom agent by subclassing `BaseAgent` and implementing the `_run_async_impl` method.
+    *   The `_run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]` method defines the agent's behavior. Inside this method, you can execute complex logic, call sub-agents using `self.sub_agent.run_async(ctx)`, manage state via `ctx.session.state`, and yield events to communicate with the runner.
     *   State is managed via `ctx.session.state`.
     *   **Python Example**:
         ```python
@@ -118,26 +128,35 @@ Agents are the fundamental execution units in ADK.
 
 Tools extend agent capabilities.
 
-1.  **`FunctionTool`**: Wraps custom Python functions.
+1.  **`FunctionTool`**: Wraps custom Python functions into a tool. The `@tool` decorator is a simpler alternative for most use cases.
+    *   **Creation**:
+        *   **Decorator (`@tool`)**: The easiest way. Apply it to a Python function.
+        *   **Class (`FunctionTool`)**: Manually wrap a function using `FunctionTool(func=my_function)`.
     *   Parameters should be JSON-serializable. Type hints are crucial.
-    *   Return type **must be a dictionary**. If not, ADK wraps it as `{'result': <value>}`.
+    *   Return value should be JSON-serializable. If it's not a `dict`, ADK wraps it as `{'result': <value>}`.
     *   Docstrings are critical for the LLM to understand tool purpose, arguments, and return structure.
     *   **Python Example**:
         ```python
-        from google.adk.tools import FunctionTool
+        from google.adk.tools import tool, FunctionTool
 
+        @tool
         def get_current_time() -> dict:
             """Returns the current time as a string."""
             import datetime
             return {"current_time": datetime.datetime.now().isoformat(), "status": "success"}
 
-        time_tool = FunctionTool(func=get_current_time)
-        # Agent can then use: tools=[time_tool]
+        # The agent can then use the tool directly:
+        # agent = Agent(..., tools=[get_current_time])
+
+        # Equivalent using the class:
+        # time_tool_from_class = FunctionTool(func=get_current_time)
         ```
     *   Reference: `docs/tools/function-tools.md#1-function-tool`
 
 2.  **`LongRunningFunctionTool`**: For asynchronous tasks that take time, yielding intermediate updates.
-    *   The wrapped function must be an `async def` and return an `AsyncGenerator`.
+    *   The wrapped function must be an `async def` and return an `AsyncGenerator[dict, None]`.
+    *   Each dictionary yielded **must** contain a `"status"` key with one of the following string values: `"running"`, `"completed"`, or `"failed"`.
+    *   The final dictionary yielded **must** have a status of either `"completed"` or `"failed"`.
     *   **Python Example**:
         ```python
         from google.adk.tools import LongRunningFunctionTool
@@ -146,6 +165,7 @@ Tools extend agent capabilities.
 
         async def process_data_stream(job_id: str) -> AsyncGenerator[dict, None]:
             """Processes a data stream, yielding progress updates."""
+            yield {"job_id": job_id, "status": "running", "progress": 0}
             for i in range(5):
                 await asyncio.sleep(1)
                 yield {"job_id": job_id, "progress": (i + 1) * 20, "status": "running"}
@@ -173,7 +193,52 @@ Tools extend agent capabilities.
         ```
     *   Reference: `docs/tools/function-tools.md#3-agent-as-a-tool`
 
-4.  **Built-in Tools**:
+4.  **Customizing Tool Name and Description**:
+    *   By default, the function name and docstring are used. You can override these for clarity or to guide the LLM more effectively.
+    *   **Python Example**:
+        ```python
+        from google.adk.tools import tool
+
+        @tool(name="GetCurrentTimestamp", description="Use this tool to get the precise current time.")
+        def get_time() -> dict:
+            # ... implementation ...
+            return {"time": "..."}
+        ```
+
+5.  **Structured Tool Input**:
+    *   Use Pydantic `BaseModel` to define complex, nested input schemas for your tools.
+    *   **Python Example**:
+        ```python
+        from google.adk.tools import tool
+        from pydantic import BaseModel, Field
+
+        class UserProfile(BaseModel):
+            name: str = Field(description="User's full name.")
+            age: int = Field(description="User's age.")
+
+        @tool
+        def create_user(user_profile: UserProfile) -> dict:
+            """Creates a new user profile."""
+            # process user_profile.name, user_profile.age
+            return {"status": "success", "user_id": "123"}
+        ```
+
+6.  **Tool Context**:
+    *   For tools that need to access session state, manage artifacts, or handle authentication, add `tool_context: ToolContext` as the **last** parameter.
+    *   ADK automatically injects this context object at runtime. Do **not** describe it in the docstring.
+    *   **Python Example**:
+        ```python
+        from google.adk.tools import tool, ToolContext
+
+        @tool
+        def get_user_preference(key: str, tool_context: ToolContext) -> dict:
+            """Retrieves a user preference from session state."""
+            user_id = tool_context.state.get("user_id") # Access state
+            preference = tool_context.state.get(f"user:{user_id}:{key}")
+            return {"preference": preference}
+        ```
+
+7.  **Built-in Tools**:
     *   `google_search`: For web searches (Gemini 2 models). Requires proper display of suggestions.
     *   `built_in_code_execution`: For code execution (Gemini 2 models).
     *   `vertex_ai_search_tool`: For Vertex AI Search.
@@ -191,7 +256,7 @@ Tools extend agent capabilities.
         ```
     *   Reference: `docs/tools/built-in-tools.md`
 
-5.  **`OpenAPIToolset`**: Generates `RestApiTool` instances from an OpenAPI (v3.x) specification.
+8.  **`OpenAPIToolset`**: Generates `RestApiTool` instances from an OpenAPI (v3.x) specification.
     *   Initialize with spec string/dict and auth details if needed.
     *   **Python Example**:
         ```python
@@ -203,7 +268,7 @@ Tools extend agent capabilities.
         ```
     *   Reference: `docs/tools/openapi-tools.md`
 
-6.  **`MCPToolset`**: Integrates tools from Model Context Protocol (MCP) servers.
+9.  **`MCPToolset`**: Integrates tools from Model Context Protocol (MCP) servers.
     *   Connects to local or remote MCP servers.
     *   **Python Example**:
         ```python
@@ -219,13 +284,13 @@ Tools extend agent capabilities.
         ```
     *   Reference: `docs/tools/mcp-tools.md`
 
-7.  **Google Cloud Tools**:
+10. **Google Cloud Tools**:
     *   `APIHubToolset`: For APIs documented in Apigee API Hub.
     *   `ApplicationIntegrationToolset`: For Google Cloud Application Integration workflows or connectors.
     *   Toolbox for Databases: Using `ToolboxSyncClient` to load tools from an MCP Toolbox server.
     *   Reference: `docs/tools/google-cloud-tools.md`
 
-8.  **Third-Party Tools**:
+11. **Third-Party Tools**:
     *   `LangchainTool`: Wraps LangChain tools.
     *   `CrewaiTool`: Wraps CrewAI tools.
     *   **Python Example (LangChain)**:
@@ -238,7 +303,7 @@ Tools extend agent capabilities.
         ```
     *   Reference: `docs/tools/third-party-tools.md`
 
-9.  **Tool Authentication**:
+12. **Tool Authentication**:
     *   Configure `AuthScheme` and `AuthCredential` for tools needing auth (e.g., `OpenAPIToolset`).
     *   Interactive OAuth flow is handled via `ToolContext.request_credential()` and `ToolContext.get_auth_response()`.
     *   The `ToolContext` parameter must be the last one in a tool function signature.
@@ -443,22 +508,32 @@ Enables real-time, interactive experiences.
 
 ### B. Multi-Agent Systems
 
-Design modular applications by composing specialized agents.
-*   **Coordinator/Dispatcher Pattern**: A root `LlmAgent` delegates tasks to specialized sub-agents based on user intent. Sub-agents need clear `description`s. Root agent's `instruction` guides delegation.
-    ```python
-    # billing_agent = Agent(name="Billing", description="Handles billing inquiries.")
-    # support_agent = Agent(name="Support", description="Handles tech support.")
-    # coordinator = Agent(
-    #     name="HelpDesk",
-    #     instruction="Route to Billing for payment issues, Support for tech problems.",
-    #     sub_agents=[billing_agent, support_agent]
-    # )
-    ```
-*   **Sequential Pipeline**: Use `SequentialAgent` for multi-step processes where output of one step feeds the next (via session state and `output_key` or explicit state updates).
-*   **Parallel Fan-Out/Gather**: Use `ParallelAgent` for concurrent independent tasks, followed by a step (often in a `SequentialAgent`) to aggregate results from state.
-*   **Hierarchical Task Decomposition**: A multi-level tree of agents where higher-level agents break down complex goals and delegate to lower-level agents (often using `AgentTool`).
-*   **Review/Critique (Generator-Critic)**: A `SequentialAgent` with a generator agent followed by a reviewer/critic agent. Data passed via state.
-*   **Iterative Refinement**: `LoopAgent` containing agents that progressively improve a result in session state until a condition is met (checked by a sub-agent or `max_iterations`).
+Design modular applications by composing specialized agents. A parent agent can orchestrate multiple sub-agents.
+
+*   **Key `Agent` Parameters for Multi-Agent Systems**:
+    *   `sub_agents` (list[`BaseAgent`]): A list of child agents that this parent agent can delegate tasks to.
+    *   `global_instruction` (str): An instruction that is prepended to the instruction of every sub-agent in the hierarchy. Useful for enforcing system-wide constraints or personas.
+    *   `disallow_transfer_to_parent` (bool): If `True`, prevents sub-agents from escalating back to this parent agent.
+    *   `disallow_transfer_to_peers` (bool): If `True`, prevents sub-agents from delegating to their siblings.
+
+*   **Design Patterns**:
+    *   **Coordinator/Dispatcher Pattern**: A root `LlmAgent` acts as a router, delegating tasks to specialized sub-agents based on user intent. The `description` of each sub-agent is critical for the coordinator to make correct routing decisions.
+        ```python
+        billing_agent = Agent(name="Billing", description="Handles all questions about billing, invoices, and payments.")
+        support_agent = Agent(name="Support", description="Handles technical support issues and product questions.")
+        
+        coordinator = Agent(
+            name="HelpDesk",
+            model="gemini-1.5-flash-001",
+            instruction="You are a help desk coordinator. Analyze the user's request and route it to the appropriate department: Billing or Support.",
+            sub_agents=[billing_agent, support_agent]
+        )
+        ```
+    *   **Sequential Pipeline**: Use `SequentialAgent` for multi-step processes where the output of one step is required for the next. Data is passed between steps using `session.state`.
+    *   **Parallel Fan-Out/Gather**: Use `ParallelAgent` for independent, concurrent tasks. A subsequent agent (often in a `SequentialAgent`) can then aggregate the results from `session.state`.
+    *   **Hierarchical Task Decomposition**: A complex task is broken down by a high-level agent. The sub-tasks are then delegated to lower-level, more specialized agents. This can be achieved with nested `sub_agents` or by using `AgentTool`.
+    *   **Review/Critique (Generator-Critic)**: A `SequentialAgent` where the first agent generates content (e.g., a report) and the second agent reviews or critiques it. The data is passed via `session.state`.
+    *   **Iterative Refinement**: Use a `LoopAgent` where one or more sub-agents progressively improve a piece of data in `session.state` until a separate checking agent determines the quality is sufficient and stops the loop.
 *   Reference: `docs/agents/multi-agents.md`
 
 ### C. Tool Design Principles
@@ -545,4 +620,3 @@ ADK agents can be deployed to various environments.
 *   Ensure all dependencies are in `requirements.txt`.
 *   Manage API keys and sensitive configurations securely (e.g., environment variables, secret managers).
 *   Use persistent `SessionService` (e.g., `DatabaseSessionService` or `VertexAiSessionService` if using Agent Engine) for production.
-```
