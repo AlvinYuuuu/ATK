@@ -64,7 +64,7 @@ def search_memory(user_id: str, query: str) -> dict:
     print("Tool: No relevant memories found.")
     return {"status": "no_memories", "message": "No relevant memories found"}
 
-def save_memory(user_id: str, content: str, metadata: dict = {}) -> dict:
+def save_memory(user_id: str, content: str, metadata: dict) -> dict:
     """
     Saves a piece of information to the user's memory.
 

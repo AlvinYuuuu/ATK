@@ -8,6 +8,7 @@ import argparse
 import asyncio
 import uuid
 from typing import List, Tuple
+import os
 
 import gradio as gr
 from google.adk.events import Event, EventActions
@@ -86,81 +87,52 @@ async def load_chat_history(session_id: str) -> List[Tuple[str | None, str | Non
 
 # --- Gradio UI Event Handlers ---
 
-async def handle_chat_interaction(text_input, file_obj, history, session_id):
+async def handle_chat_interaction(text_input, file_objs, history, session_id):
     """
     Handles a single user-bot interaction, including file uploads.
     This function is a generator to allow for streaming responses.
     """
-    if not session_id:
-        # Prepare a more user-friendly message
-        user_display = text_input
-        if file_obj:
-            user_display = f"Received file: `{file_obj.name}`.\n\nUser message: {text_input}"
-
-        history.append(
-            (
-                user_display,
-                "Error: No active session. Please start a new chat or select a previous one.",
-            )
-        )
-        yield history, session_id, gr.update(value=""), gr.update(value=None)
-        return
-
-    user_message_for_agent = text_input  # The message the agent will see
-
-    # Handle file uploads by updating the session state *before* running the agent
-    if file_obj:
-        file_path = file_obj.name
-        session = await session_service.get_session(
-            app_name=APP_NAME, user_id=USER_ID, session_id=session_id
-        )
-        if session:
-            # Per ADK docs, update state via events for persistence and auditability.
-            state_delta = {"local_file_path": file_path}
-            file_event = Event(
-                author="system",
-                actions=EventActions(state_delta=state_delta),
-                content={"parts": [{"text": f"User uploaded file: {file_path}"}]},
-            )
-            await session_service.append_event(session, file_event)
-            print(f"Updated session state with file path: {file_path}")
-
-        # For the user's view, show the file was received.
+    # --- Immediate UI update ---
+    # Show the user's message and clear the input fields right away.
+    if file_objs:
+        file_paths = [f.name for f in file_objs]
+        file_names = [os.path.basename(p) for p in file_paths]
         display_message = (
-            f"Received file: `{file_path}`.\n\n" f"User message: {text_input}"
+            f"Received files: `{file_names}`.\\n\\n" f"User message: {text_input}"
         )
-        history.append((display_message, None))
+        history.append((display_message, "Analyzing..."))
     else:
-        history.append((text_input, None))
+        history.append((text_input, "Analyzing..."))
 
+    # Yield the updated history and clear inputs. The `None`s are placeholders for outputs
+    # we aren't updating at this exact moment.
     yield history, session_id, gr.update(value=""), gr.update(value=None)
+    # -------------------------
 
     # --- Prepare message for the agent, including context ---
     context_parts = [f"The user's session_id is: {session_id}."]
-    if file_obj:
-        context_parts.append(f"A file has been uploaded and is available at path: {file_obj.name}")
+    if file_objs:
+        file_paths = [f.name for f in file_objs]
+        # Format as a simple comma-separated string for easier parsing by the LLM
+        context_parts.append(f"Files have been uploaded and are available at paths: {','.join(file_paths)}")
     
     context_block = f"---CONTEXT--- {' '.join(context_parts)}"
-    final_message_for_agent = f"{user_message_for_agent}\n\n{context_block}"
+    final_message_for_agent = f"{text_input}\\n\\n{context_block}"
     
     print(f"Message being sent to agent: {final_message_for_agent}")
-    # ---------------------------------------------------------
-
-    # Prepare the user's message in the ADK format using google.genai.types
+    
     content_for_agent = genai_types.Content(
         role="user", parts=[genai_types.Part(text=final_message_for_agent)]
     )
 
     final_response_text = None
     try:
-        # Execute the agent. The agent can access the file path from session.state
+        # Execute the agent
         async for event in runner.run_async(
             user_id=USER_ID,
             session_id=session_id,
             new_message=content_for_agent,
         ):
-            # In a streaming scenario, you could yield intermediate events here.
-            # For now, we'll just wait for the final response.
             if event.is_final_response():
                 if event.content and event.content.parts:
                     final_response_text = event.content.parts[0].text
@@ -170,14 +142,14 @@ async def handle_chat_interaction(text_input, file_obj, history, session_id):
 
     except Exception as e:
         print(f"An error occurred during agent execution: {e}")
-        # We can inspect the error message to provide more specific feedback
-        if "Session not found" in str(e):
-            final_response_text = "Error: The session was not found. Please start a new chat."
-        else:
-            final_response_text = f"An unexpected error occurred: {e}"
+        final_response_text = f"An unexpected error occurred: {e}"
 
     history[-1] = (history[-1][0], final_response_text)
-    yield history, session_id
+    
+    # --- Final UI update ---
+    # Yield the final history and None for the other outputs that don't need changing.
+    yield history, session_id, None, None
+    # ---------------------
 
 
 async def create_new_chat_session():
@@ -258,14 +230,15 @@ with gr.Blocks(
 
     with gr.Row(equal_height=True):
         chat_input_text = gr.Textbox(
-            show_label=False,
-            placeholder="Select a chat or start a new one to begin.",
+        show_label=False,
+        placeholder="Select a chat or start a new one to begin.",
             scale=4,
             interactive=False,
         )
         file_uploader = gr.File(
-            label="Upload Document",
+            label="Upload Document(s)",
             file_types=[".pdf", ".doc", ".docx"],
+            file_count="multiple",
             scale=1,
             interactive=False,
         )
@@ -290,20 +263,23 @@ with gr.Blocks(
         switch_active_session, None, [chatbot, session_id_state, chat_input_text, file_uploader, submit_button]
     )
 
+    # Define the list of outputs for the chat handler
+    outputs = [chatbot, session_id_state, chat_input_text, file_uploader]
+
     # When the user submits a message (via button or enter)
-    submit_handler = submit_button.click(
+    submit_button.click(
         handle_chat_interaction,
         [chat_input_text, file_uploader, chatbot, session_id_state],
-        [chatbot, session_id_state],
+        outputs,
     )
     chat_input_text.submit(
         handle_chat_interaction,
         [chat_input_text, file_uploader, chatbot, session_id_state],
-        [chatbot, session_id_state],
+        outputs,
     )
     
     # After submission, clear the inputs
-    submit_handler.then(
+    submit_handler = submit_button.click(
         lambda: (gr.update(value=""), gr.update(value=None)), None, [chat_input_text, file_uploader]
     )
 

@@ -4,7 +4,7 @@ parsing and analyzing tender documents.
 """
 from google.adk.agents import LlmAgent
 from google.adk.models.lite_llm import LiteLlm
-from src.tools.document_parsing_tools import parse_document
+from src.tools.document_parsing_tools import parse_documents
 from src.tools.memory_tools import save_memory
 from .prompt import TENDER_ANALYSIS_PROMPT
 
@@ -16,6 +16,6 @@ TenderAnalysisAgent = LlmAgent(
     instruction=TENDER_ANALYSIS_PROMPT,
     tools=[
         save_memory,
-        parse_document,
+        parse_documents,
     ],
 ) 
