@@ -6,7 +6,6 @@ from google.adk.agents import LlmAgent
 from google.adk.models.lite_llm import LiteLlm
 from google.adk.tools.agent_tool import AgentTool
 from src.agents.tender_analysis import TenderAnalysisAgent
-from src.tools.document_parsing_tools import parse_document
 from src.tools.memory_tools import search_memory
 from .prompt import ORCHESTRATOR_PROMPT
 
@@ -17,7 +16,6 @@ OrchestratorAgent = LlmAgent(
     instruction=ORCHESTRATOR_PROMPT,
     tools=[
         AgentTool(agent=TenderAnalysisAgent),
-        parse_document,
         search_memory,
     ],
 ) 

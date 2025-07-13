@@ -3,6 +3,8 @@ Tools for parsing and extracting text from various document formats.
 """
 from markitdown import MarkItDown
 
+md_converter = MarkItDown(enable_plugins=False)
+
 def parse_document(file_path: str) -> str:
     """
     Parses a document (PDF, DOCX, etc.) from the given file path
@@ -21,7 +23,7 @@ def parse_document(file_path: str) -> str:
     try:
         # The markitdown library automatically handles different file types
         # based on the file extension and content.
-        markdown_content = MarkItDown(file_path)
+        markdown_content = md_converter.convert(file_path).text_content
         print("Successfully converted document to Markdown.")
         return markdown_content
     except Exception as e:

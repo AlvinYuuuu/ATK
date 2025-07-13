@@ -86,28 +86,31 @@ async def load_chat_history(session_id: str) -> List[Tuple[str | None, str | Non
 
 # --- Gradio UI Event Handlers ---
 
-async def handle_chat_interaction(message, history, session_id):
+async def handle_chat_interaction(text_input, file_obj, history, session_id):
     """
     Handles a single user-bot interaction, including file uploads.
     This function is a generator to allow for streaming responses.
     """
     if not session_id:
+        # Prepare a more user-friendly message
+        user_display = text_input
+        if file_obj:
+            user_display = f"Received file: `{file_obj.name}`.\n\nUser message: {text_input}"
+
         history.append(
             (
-                message["text"],
+                user_display,
                 "Error: No active session. Please start a new chat or select a previous one.",
             )
         )
-        yield history, session_id
+        yield history, session_id, gr.update(value=""), gr.update(value=None)
         return
 
-    text_input = message["text"]
-    files = message["files"]
     user_message_for_agent = text_input  # The message the agent will see
 
     # Handle file uploads by updating the session state *before* running the agent
-    if files:
-        file_path = files[0]
+    if file_obj:
+        file_path = file_obj.name
         session = await session_service.get_session(
             app_name=APP_NAME, user_id=USER_ID, session_id=session_id
         )
@@ -130,11 +133,22 @@ async def handle_chat_interaction(message, history, session_id):
     else:
         history.append((text_input, None))
 
-    yield history, session_id
+    yield history, session_id, gr.update(value=""), gr.update(value=None)
+
+    # --- Prepare message for the agent, including context ---
+    context_parts = [f"The user's session_id is: {session_id}."]
+    if file_obj:
+        context_parts.append(f"A file has been uploaded and is available at path: {file_obj.name}")
+    
+    context_block = f"---CONTEXT--- {' '.join(context_parts)}"
+    final_message_for_agent = f"{user_message_for_agent}\n\n{context_block}"
+    
+    print(f"Message being sent to agent: {final_message_for_agent}")
+    # ---------------------------------------------------------
 
     # Prepare the user's message in the ADK format using google.genai.types
     content_for_agent = genai_types.Content(
-        role="user", parts=[genai_types.Part(text=user_message_for_agent)]
+        role="user", parts=[genai_types.Part(text=final_message_for_agent)]
     )
 
     final_response_text = None
@@ -180,7 +194,9 @@ async def create_new_chat_session():
         [],  # Clear chatbot
         new_session_id,  # Update session_id state
         gr.update(choices=all_sessions, value=new_session_id),  # Update dropdown
-        gr.update(interactive=True, placeholder="Type your message..."), # Enable input
+        gr.update(interactive=True, placeholder="Type your message..."), # Enable text input
+        gr.update(interactive=True), # Enable file uploader
+        gr.update(interactive=True), # Enable send button
     )
 
 
@@ -192,6 +208,8 @@ async def switch_active_session(evt: gr.SelectData):
             [],
             None,
             gr.update(interactive=False, placeholder="Select a chat to begin"),
+            gr.update(interactive=False),
+            gr.update(interactive=False),
         )
 
     print(f"Switching to session: {session_id}")
@@ -200,6 +218,8 @@ async def switch_active_session(evt: gr.SelectData):
         history,
         session_id,
         gr.update(interactive=True, placeholder="Type your message..."),
+        gr.update(interactive=True),
+        gr.update(interactive=True),
     )
 
 
@@ -236,13 +256,22 @@ with gr.Blocks(
         avatar_images=(None, "https://i.imgur.com/TdcY2x3.png"),
     )
 
-    chat_input = gr.MultimodalTextbox(
-        file_types=["pdf", "doc", "docx"],
-        label="Chat Input",
-        show_label=False,
-        placeholder="Select a chat or start a new one to begin.",
-        interactive=False,  # Disabled until a session is active
-    )
+    with gr.Row(equal_height=True):
+        chat_input_text = gr.Textbox(
+            show_label=False,
+            placeholder="Select a chat or start a new one to begin.",
+            scale=4,
+            interactive=False,
+        )
+        file_uploader = gr.File(
+            label="Upload Document",
+            file_types=[".pdf", ".doc", ".docx"],
+            scale=1,
+            interactive=False,
+        )
+
+    submit_button = gr.Button("Send", variant="primary", interactive=False, scale=1)
+
 
     # --- Wire UI Components to Event Handlers ---
 
@@ -253,21 +282,29 @@ with gr.Blocks(
     new_chat_button.click(
         create_new_chat_session,
         None,
-        [chatbot, session_id_state, session_dropdown, chat_input],
+        [chatbot, session_id_state, session_dropdown, chat_input_text, file_uploader, submit_button],
     )
 
     # When a session is selected from the dropdown
     session_dropdown.select(
-        switch_active_session, None, [chatbot, session_id_state, chat_input]
+        switch_active_session, None, [chatbot, session_id_state, chat_input_text, file_uploader, submit_button]
     )
 
-    # When the user submits a message
-    chat_input.submit(
+    # When the user submits a message (via button or enter)
+    submit_handler = submit_button.click(
         handle_chat_interaction,
-        [chat_input, chatbot, session_id_state],
+        [chat_input_text, file_uploader, chatbot, session_id_state],
         [chatbot, session_id_state],
-    ).then(
-        lambda: gr.update(value=None), None, [chat_input] # Clear input box after submit
+    )
+    chat_input_text.submit(
+        handle_chat_interaction,
+        [chat_input_text, file_uploader, chatbot, session_id_state],
+        [chatbot, session_id_state],
+    )
+    
+    # After submission, clear the inputs
+    submit_handler.then(
+        lambda: (gr.update(value=""), gr.update(value=None)), None, [chat_input_text, file_uploader]
     )
 
 

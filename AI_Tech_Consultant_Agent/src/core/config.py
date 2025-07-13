@@ -6,6 +6,7 @@ import os
 import base64
 import litellm
 from typing import Optional
+from langfuse import get_client
 
 from pydantic import model_validator, PostgresDsn
 from pydantic_settings import BaseSettings
@@ -28,6 +29,23 @@ class Settings(BaseSettings):
     # Mem0 Configuration
     MEM0_API_KEY: Optional[str] = None
     MEM0_API_BASE: Optional[str] = None # For self-hosted instances
+
+    # -- Mem0 Self-Hosted Configuration --
+    # LLM
+    MEM0_LLM_PROVIDER: str = "litellm"
+    MEM0_LLM_MODEL: str = "vertex_ai/gemini-2.5-flash"
+    MEM0_LLM_TEMPERATURE: float = 0.2
+    MEM0_LLM_MAX_TOKENS: int = 20000
+
+    # Vector Store
+    MEM0_VECTOR_STORE_PROVIDER: str = "chroma"
+    MEM0_VECTOR_STORE_COLLECTION_NAME: str = "atk"
+    MEM0_VECTOR_STORE_HOST: str = "http://localhost:8001"
+
+    # Embedder
+    MEM0_EMBEDDER_PROVIDER: str = "ollama"
+    MEM0_EMBEDDER_MODEL: str = "dengcao/Qwen3-Embedding-0.6B:F16"
+    MEM0_EMBEDDER_OLLAMA_BASE_URL: str = "http://localhost:11434"
 
     # --- Database Configuration ---
     # Assembled from individual components if not provided directly.
@@ -90,6 +108,14 @@ def setup_langfuse_tracing():
         os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = f"{settings.LANGFUSE_HOST}/api/public/otel"
         os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = f"Authorization=Basic {auth_header}"
 
+        langfuse = get_client()
+ 
+        # Verify connection
+        if langfuse.auth_check():
+            print("Langfuse client is authenticated and ready!")
+        else:
+            print("Authentication failed. Please check your credentials and host.")
+            
         print("LangFuse tracing initialized successfully.")
 
     except Exception as e:

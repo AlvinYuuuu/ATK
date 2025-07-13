@@ -13,27 +13,25 @@ from src.core.config import settings
 
 config = {
     "llm": {
-        "provider": "litellm",
+        "provider": settings.MEM0_LLM_PROVIDER,
         "config": {
-            "model": "vertex_ai/gemini-2.5-flash",
-            "temperature": 0.2,
-            "max_tokens": 20000,
+            "model": settings.MEM0_LLM_MODEL,
+            "temperature": settings.MEM0_LLM_TEMPERATURE,
+            "max_tokens": settings.MEM0_LLM_MAX_TOKENS,
         }
     },
     "vector_store": {
-        "provider": "chroma",
+        "provider": settings.MEM0_VECTOR_STORE_PROVIDER,
         "config": {
-            "collection_name": "atk",
-            "host": "http://localhost:8001",
-            # "port": 8001
+            "collection_name": settings.MEM0_VECTOR_STORE_COLLECTION_NAME,
+            "host": settings.MEM0_VECTOR_STORE_HOST,
         }
     },
     "embedder": {
-        "provider": "ollama",
+        "provider": settings.MEM0_EMBEDDER_PROVIDER,
         "config": {
-            "model": "dengcao/Qwen3-Embedding-0.6B:F16",
-            # Alternatively, you can use "snowflake-arctic-embed:latest"
-            "ollama_base_url": "http://localhost:11434",
+            "model": settings.MEM0_EMBEDDER_MODEL,
+            "ollama_base_url": settings.MEM0_EMBEDDER_OLLAMA_BASE_URL,
         },
     },
 }
@@ -66,7 +64,7 @@ def search_memory(user_id: str, query: str) -> dict:
     print("Tool: No relevant memories found.")
     return {"status": "no_memories", "message": "No relevant memories found"}
 
-def save_memory(user_id: str, content: str, metadata: dict = None) -> dict:
+def save_memory(user_id: str, content: str, metadata: dict = {}) -> dict:
     """
     Saves a piece of information to the user's memory.
 
