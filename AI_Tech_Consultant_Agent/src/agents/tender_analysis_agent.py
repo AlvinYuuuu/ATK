@@ -5,6 +5,7 @@ Tender Analysis Agent - Analyzes tender documents and extracts requirements.
 from typing import Dict, List, Any
 from google.adk.agents import Agent
 from src.tools.memory_tools import store_tender_analysis, search_memories
+from google.adk.models.lite_llm import LiteLlm
 from src.tools.document_parsing_tools import (
     extract_text_from_file,
     extract_requirements_from_text,
@@ -100,5 +101,9 @@ tender_analysis_agent = Agent(
     Focus on extracting actionable information that will help the Solution Strategy
     Agent create an appropriate technical solution.
     """,
-    tools=[analyze_tender_document]
+    model="gemini-2.0-flash-exp",
+    tools=[
+        analyze_tender_document,
+        search_memories
+    ]
 )

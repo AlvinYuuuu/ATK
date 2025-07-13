@@ -4,6 +4,7 @@ Visualization Agent - Creates diagrams and visualizations for technical proposal
 
 from typing import Dict, List, Any
 from google.adk.agents import Agent
+from litellm import LiteLLM
 from src.tools.memory_tools import (
     get_latest_memory,
     store_visualization,
@@ -481,6 +482,7 @@ visualization_agent = Agent(
     
     Always ensure diagrams are accurate and reflect the actual solution design.
     """,
+    model="gemini-2.0-flash-exp",
     tools=[
         create_system_architecture_diagram,
         create_infrastructure_diagram,
@@ -488,6 +490,7 @@ visualization_agent = Agent(
         create_project_workflow_diagram,
         create_sequence_diagram,
         create_database_er_diagram,
-        create_all_diagrams
+        create_all_diagrams,
+        search_memories
     ]
 )

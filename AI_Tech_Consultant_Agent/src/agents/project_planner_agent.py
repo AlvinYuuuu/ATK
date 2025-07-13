@@ -4,6 +4,7 @@ Project Planner Agent - Creates project plans, timelines, and cost estimates.
 
 from typing import Dict, List, Any
 from google.adk.agents import Agent
+from litellm import LiteLLM
 from src.tools.memory_tools import (
     get_latest_memory,
     store_project_plan,
@@ -307,7 +308,9 @@ project_planner_agent = Agent(
     Always consider the client's constraints and preferences when planning
     timelines and resource allocation.
     """,
+    model="gemini-2.0-flash-exp",
     tools=[
+        search_memories,
         create_comprehensive_project_plan,
         update_project_timeline,
         generate_project_summary

@@ -7,6 +7,17 @@ import re
 from typing import Dict, List, Any, Optional
 from pathlib import Path
 
+try:
+    from docx import Document
+    DOCX_AVAILABLE = True
+except ImportError:
+    DOCX_AVAILABLE = False
+
+try:
+    import fitz  # PyMuPDF
+    PDF_AVAILABLE = True
+except ImportError:
+    PDF_AVAILABLE = False
 
 
 def extract_text_from_file(file_path: str) -> str:
@@ -33,23 +44,83 @@ def extract_text_from_file(file_path: str) -> str:
             return f"Error reading file: {str(e)}"
     
     elif file_path.suffix.lower() == '.pdf':
+        if not PDF_AVAILABLE:
+            return f"PDF parsing not available. Please install PyMuPDF: pip install PyMuPDF"
         try:
-            # For PDF files, we'll need to implement PDF parsing
-            # For now, return a placeholder
-            return f"PDF parsing not yet implemented for {file_path}"
+            return extract_text_from_pdf(str(file_path))
         except Exception as e:
             return f"Error parsing PDF: {str(e)}"
     
     elif file_path.suffix.lower() == '.docx':
+        if not DOCX_AVAILABLE:
+            return f"DOCX parsing not available. Please install python-docx: pip install python-docx"
         try:
-            # For DOCX files, we'll need to implement DOCX parsing
-            # For now, return a placeholder
-            return f"DOCX parsing not yet implemented for {file_path}"
+            return extract_text_from_docx(str(file_path))
         except Exception as e:
             return f"Error parsing DOCX: {str(e)}"
     
     else:
         return f"Unsupported file type: {file_path.suffix}"
+
+
+def extract_text_from_docx(file_path: str) -> str:
+    """
+    Extract text content from a DOCX file.
+    
+    Args:
+        file_path: Path to the DOCX file
+    
+    Returns:
+        Extracted text content
+    """
+    try:
+        doc = Document(file_path)
+        text_content = []
+        
+        # Extract text from paragraphs
+        for paragraph in doc.paragraphs:
+            if paragraph.text.strip():
+                text_content.append(paragraph.text)
+        
+        # Extract text from tables
+        for table in doc.tables:
+            for row in table.rows:
+                row_text = []
+                for cell in row.cells:
+                    if cell.text.strip():
+                        row_text.append(cell.text.strip())
+                if row_text:
+                    text_content.append(" | ".join(row_text))
+        
+        return "\n".join(text_content)
+    
+    except Exception as e:
+        raise Exception(f"Failed to parse DOCX file: {str(e)}")
+
+
+def extract_text_from_pdf(file_path: str) -> str:
+    """
+    Extract text content from a PDF file.
+    
+    Args:
+        file_path: Path to the PDF file
+    
+    Returns:
+        Extracted text content
+    """
+    try:
+        doc = fitz.open(file_path)
+        text_content = []
+        
+        for page_num in range(len(doc)):
+            page = doc.load_page(page_num)
+            text_content.append(page.get_text())
+        
+        doc.close()
+        return "\n".join(text_content)
+    
+    except Exception as e:
+        raise Exception(f"Failed to parse PDF file: {str(e)}")
 
 
 def extract_requirements_from_text(text: str) -> Dict[str, Any]:

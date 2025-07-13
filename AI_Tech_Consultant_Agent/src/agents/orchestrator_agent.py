@@ -5,6 +5,7 @@ Orchestrator Agent - Coordinates all other agents and manages the proposal gener
 import asyncio
 from typing import Dict, List, Any, Optional
 from google.adk.agents import Agent
+from google.adk.tools.agent_tool import AgentTool
 from src.tools.memory_tools import (
     get_context_summary,
     search_memories,
@@ -443,7 +444,7 @@ def run_complete_workflow_sync(tender_content: Optional[str] = None, file_path: 
 # Define the Orchestrator Agent
 orchestrator_agent = Agent(
     name="OrchestratorAgent",
-    model="gemini-2.5-flash-preview-04-17",
+    model="gemini-2.0-flash-exp",
     description="""
     The central orchestrator that coordinates all other agents in the AI Tech Consultant system.
     This agent is responsible for:
@@ -486,15 +487,31 @@ orchestrator_agent = Agent(
     multi-agent system, making the proposal generation process smooth and efficient.
     """,
     tools=[
-        start_proposal_generation_sync,
-        design_solution_strategy_sync,
-        create_visualizations_sync,
-        create_project_plan_sync,
-        generate_final_proposal_sync,
-        run_complete_workflow_sync,
-        check_workflow_status,
-        identify_missing_information,
-        generate_proposal_summary
+        AgentTool(
+            agent=tender_analysis_agent
+        ),
+        AgentTool(
+            agent=solution_strategy_agent
+        ),
+        AgentTool(
+            agent=visualization_agent
+        ),
+        AgentTool(
+            agent=project_planner_agent
+        ),
+        AgentTool(
+            agent=technical_writer_agent
+        ),
+        search_memories,
+        # start_proposal_generation_sync,
+        # design_solution_strategy_sync,
+        # create_visualizations_sync,
+        # create_project_plan_sync,
+        # generate_final_proposal_sync,
+        # run_complete_workflow_sync,
+        # check_workflow_status,
+        # identify_missing_information,
+        # generate_proposal_summary
     ]
 )
 

@@ -4,6 +4,7 @@ Solution Strategy Agent - Designs technical solutions based on tender analysis.
 
 from typing import Dict, List, Any
 from google.adk.agents import Agent
+from litellm import LiteLLM
 from src.tools.memory_tools import (
     get_latest_memory, 
     store_solution_strategy, 
@@ -351,5 +352,6 @@ solution_strategy_agent = Agent(
     Always consider the client's constraints and preferences when making
     technical decisions.
     """,
-    tools=[design_solution_strategy]
+    model="gemini-2.0-flash-exp",
+    tools=[design_solution_strategy, search_memories]
 )

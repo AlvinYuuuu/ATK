@@ -4,6 +4,7 @@ Technical Writer Agent - Creates comprehensive technical proposals and documenta
 
 from typing import Dict, List, Any
 from google.adk.agents import Agent
+from litellm import LiteLLM
 from src.tools.memory_tools import (
     get_latest_memory, 
     store_technical_proposal, 
@@ -391,7 +392,9 @@ technical_writer_agent = Agent(
     Always ensure the proposal addresses all client requirements and
     provides clear value propositions.
     """,
+    model="gemini-2.0-flash-exp",
     tools=[
+        search_memories,
         create_comprehensive_proposal,
         generate_proposal_summary,
         export_proposal_to_markdown
